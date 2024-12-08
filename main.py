@@ -146,7 +146,7 @@ def best_combination(lower_peptide_bound_entry, upper_peptide_bound_entry, allow
     label.pack(pady=4)
 
     # Add labels displaying the first 5 items in top_results.
-    for i in range(5):
+    for i in range(min(5, len(top_results))):
         result_text = f"{top_results[i]}"
         sample_label = Label(download_window, text=result_text, font=("Roboto", 12))
         sample_label.pack(pady=2)
