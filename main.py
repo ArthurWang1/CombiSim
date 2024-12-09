@@ -1129,12 +1129,11 @@ def find_identified_proteins(protease, protein_list, lower_bound, upper_bound, m
     # Second loop using cached results
     for protein, protein_name in protein_list:
         for location, seq in results_cache[protein]:
-            if len(seq) >= 12 and peptide_counter[seq] == 1:
+            if len(seq) >= 8 and peptide_counter[seq] == 1:
                 protein_scores.update([protein_name])
 
     for protein_name, score in protein_scores.items():
-        if score > 1:
-            recognized_proteins.add(protein_name)
+        recognized_proteins.add(protein_name)
 
     protease_digestion_cache_protein[cache_key] = recognized_proteins, len(peptide_counter), peptide_lengths
 
