@@ -137,30 +137,54 @@ def best_combination(lower_peptide_bound_entry, upper_peptide_bound_entry, allow
     result_file = result[0]
     top_results = result[1]
 
-    # Display the results using message boxes.
+    # Create a new top-level window
     download_window = tk.Toplevel()
     download_window.title("Download Window")
-    download_window.geometry("400x300")  # Adjusted height to accommodate the labels.
+    download_window.geometry("450x500")  # Adjusted to better fit the content.
 
-    label = Label(download_window, text="Top combinations:", font=("Roboto", 12))
-    label.pack(pady=4)
-
-    # Add labels displaying the first 5 items in top_results.
-    for i in range(min(5, len(top_results))):
-        result_text = f"{top_results[i]}"
-        sample_label = Label(download_window, text=result_text, font=("Roboto", 12))
-        sample_label.pack(pady=2)
-
-    # Label to inform the user about downloading results.
-    label = Label(download_window, text="Download Protease Combinations:", font=("Roboto", 12))
+    # Header for top combinations
+    label = Label(download_window, text="Top Protease Combinations", font=("Roboto", 16, "bold"))
     label.pack(pady=10)
 
-    # Button to initiate the download of the result file.
-    download_button = Button(download_window, text="Download", command=lambda: download_csv_file(result_file),
-                             font=('Roboto', 16), pady=4, padx=8)
-    download_button.pack(pady=10)
+    # Frame for scrollable content
+    frame = tk.Frame(download_window)
+    frame.pack(fill="both", expand=True, padx=10, pady=5)
 
+    canvas = tk.Canvas(frame)
+    scroll_y = tk.Scrollbar(frame, orient="vertical", command=canvas.yview)
+    scrollable_frame = tk.Frame(canvas)
 
+    # Configure scrollable region
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scroll_y.set)
+
+    # Display all combinations in a cleaner format
+    for i, combination in enumerate(top_results, start=1):
+        result_text = f"{i}. {', '.join(map(str, combination[:-1]))} (Coverage: {combination[-1]:.2f}%)"
+        result_label = Label(scrollable_frame, text=result_text, font=("Roboto", 12), anchor="w", justify="left")
+        result_label.pack(anchor="w", pady=2)
+
+    canvas.pack(side="left", fill="both", expand=True)
+    scroll_y.pack(side="right", fill="y")
+
+    # Separator for clarity
+    separator = tk.Frame(download_window, height=2, bd=1, relief="sunken", bg="#cccccc")
+    separator.pack(fill="x", padx=5, pady=10)
+
+    # Fixed frame for download button
+    download_frame = tk.Frame(download_window)
+    download_frame.pack(fill="x", padx=10, pady=10)
+
+    label = Label(download_frame, text="Download Protease Combinations", font=("Roboto", 14, "bold"))
+    label.pack(side="left")
+
+    download_button = Button(download_frame, text="Download", command=lambda: download_csv_file(result_file),
+                             font=('Roboto', 14), pady=6, padx=12)
+    download_button.pack(side="right")
 
 
 def best_combination_helper(lower_peptide_bound_daltons_entry, higher_peptide_bound_daltons_entry,
@@ -181,6 +205,8 @@ def best_combination_helper(lower_peptide_bound_daltons_entry, higher_peptide_bo
 
     Returns:
         str: Path to the generated CSV file containing the best protease combinations and their peptide coverage.
+            unsorted, for download
+        list[Tuple[Any, float]]: list of protease combinations and their peptide coverage. sorted, for UI
 
     Notes:
         - The degree parameter specifies how many additional proteases to combine with the standard proteases.
@@ -325,7 +351,7 @@ def generate_protease_combinations_protein(selected_proteases, degree, protein_l
                 protein_set = get_combined_protein_set(combo, protein_list, lower_bound, upper_bound,
                                                        missed_cleavages_num,
                                                        standard_protein_set)
-                protein_coverage = round(len(protein_set) / len(protein_list), 6)
+                protein_coverage = round(len(protein_set) / len(protein_list) * 100, 6)
                 protease_combinations.append((*combo, protein_coverage))
                 print(f"{(*combo, protein_coverage)}")
     else:
@@ -1418,16 +1444,7 @@ def create_tab(tab_parent, radio_button_string_var):
     fastaFileBrowseButton = Button(tab_parent, text="Browse", command=lambda: browse_file(fastaFilePathEntry),
                                    font=("Roboto", 10))
 
-    best_combo_button = Button(tab_parent, text="Find Best Combination",
-                               command=lambda: best_combination(lowerPeptideBoundDaltonsEntry,
-                                                                upperPeptideBoundDaltonsEntry,
-                                                                allowedMissedCleavages,
-                                                                standard_protease_check_vars,
-                                                                additional_protease_check_vars,
-                                                                fastaFilePathEntry,
-                                                                degree_entry,
-                                                                radio_button_string_var),
-                               font=("Roboto", 11), pady=3, padx=4)
+
 
     # Degree Entry and Label
     degree_frame = Frame(tab_parent, bg="#ededed")
@@ -1463,7 +1480,19 @@ def create_tab(tab_parent, radio_button_string_var):
                                                         standard_protease_check_vars,
                                                         fastaFilePathEntry),
                           font=("Roboto", 11), pady=3, padx=6)
-    startProgram.grid(row=0, column=0, padx=5, pady=5)
+    # startProgram.grid(row=0, column=0, padx=5, pady=5)
+
+    best_combo_button = Button(button_frame, text="Find Best Combination",
+                               command=lambda: best_combination(lowerPeptideBoundDaltonsEntry,
+                                                                upperPeptideBoundDaltonsEntry,
+                                                                allowedMissedCleavages,
+                                                                standard_protease_check_vars,
+                                                                additional_protease_check_vars,
+                                                                fastaFilePathEntry,
+                                                                degree_entry,
+                                                                radio_button_string_var),
+                               font=("Roboto", 11), pady=3, padx=4)
+    best_combo_button.grid(row=0, column=0, padx=5, pady=5)
 
     startProgram2 = Button(button_frame, text="Run Digestion",
                            command=lambda: run_digestion(lowerPeptideBoundDaltonsEntry,
@@ -1515,8 +1544,6 @@ def create_tab(tab_parent, radio_button_string_var):
     degree_frame.grid(row=12, column=0, columnspan=2, padx=10, pady=0)
 
     radio_frame.grid(row=13, column=0, columnspan=2, padx=10, pady=3)
-
-    best_combo_button.grid(row=14, column=0, columnspan=2, pady=0)
 
     button_frame.grid(row=15, column=0, columnspan=2, pady=5)
 
