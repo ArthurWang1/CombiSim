@@ -61,7 +61,7 @@ custom_expasy_rules = {
     'enterokinase': r'(?<=[DE]{3})K',
     'factor xa': r'(?<=[AFGILTVM][DE]G)R',
     'formic acid': r'D',
-    'glutamyl endopeptidase': r'[ED]',
+    'glu-c': r'[E]',
     'granzyme b': r'(?<=IEP)D',
     'hydroxylamine': r'N(?=G)',
     'iodosobenzoic acid': r'W',
@@ -1389,11 +1389,11 @@ def create_tab(tab_parent, radio_button_string_var):
     radio_frame = Frame(tab_parent, bg="#ededed")
 
     # Create radio buttons
-    protein_level_coverage_radio = Radiobutton(radio_frame, text="Protein Level Coverage",
+    protein_level_coverage_radio = Radiobutton(radio_frame, text="Protein Identification Rate",
                                                variable=radio_button_string_var, value="protein")
     protein_level_coverage_radio.pack(side="left", padx=5)  # Pack to the left
 
-    peptide_level_coverage_radio = Radiobutton(radio_frame, text="Peptide Level Coverage",
+    peptide_level_coverage_radio = Radiobutton(radio_frame, text="Peptide Coverage",
                                                variable=radio_button_string_var, value="peptide")
     peptide_level_coverage_radio.pack(side="left", padx=5)  # Pack to the left
 
