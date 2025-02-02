@@ -29,14 +29,14 @@ aa_comp['ac'] = mass.Composition('C2H2O')
 
 """caches for coverage maps"""
 one_protease_cache_peptide = {}  # in tandem, peptide coverage
-multi_protease_cache_peptide = {}  # scraped in series code, peptide coverage
+multi_protease_cache_peptide = {}  # scrapped in series code, peptide coverage
 protease_digestion_cache_protein = {}  # in tandem, protein identification rate
 
 """list of proteases supported by pyteomics, if more is added, the respective cleavage rule also needs to be added"""
 proteaseList = ['arg-c', 'asp-n', 'bnps-skatole', 'caspase 1', 'caspase 2', 'caspase 3', 'caspase 4', 'caspase 5',
                 'caspase 6', 'caspase 7', 'caspase 8', 'caspase 9', 'caspase 10', 'chymotrypsin high specificity',
                 'chymotrypsin low specificity', 'clostripain', 'cnbr', 'enterokinase', 'factor xa', 'formic acid',
-                'glutamyl endopeptidase', 'granzyme b', 'hydroxylamine', 'iodosobenzoic acid', 'lysc', 'ntcb',
+                'glu-c', 'granzyme b', 'hydroxylamine', 'iodosobenzoic acid', 'lysc', 'ntcb',
                 'pepsin ph1.3', 'pepsin ph2.0', 'proline endopeptidase', 'proteinase k', 'staphylococcal peptidase i',
                 'thermolysin', 'thrombin', 'trypsin']
 
@@ -83,7 +83,7 @@ custom_expasy_rules = {
 
 def best_combination(lower_peptide_bound_entry, upper_peptide_bound_entry, allowed_missed_cleavages,
                      standard_protease_check_vars, additional_protease_check_vars, fasta_file_path_entry,
-                     degree_entry, peptide_or_protein_lvl_var):
+                     size_entry, peptide_or_protein_lvl_var):
     """
     Display digestion result based on user inputs.
 
@@ -98,7 +98,7 @@ def best_combination(lower_peptide_bound_entry, upper_peptide_bound_entry, allow
     - additional_protease_check_vars (list of IntVar): List of IntVar variables linked to additional protease checkboxes
     - fasta_file_path_entry (Entry): Entry widget containing the path to the selected FASTA/CSV file.
     - selected_finder_level (str): The selected protease finder level (radio button value).
-    - degree_entry (Entry): Entry widget containing the degree of protease combinations (1, 2, 3, etc.).
+    - size_entry (Entry): Entry widget containing the size of protease combinations (1, 2, 3, etc.).
 
     Returns:
     - None
@@ -106,7 +106,7 @@ def best_combination(lower_peptide_bound_entry, upper_peptide_bound_entry, allow
     Usage:
     - best_combination(lowerPeptideBoundEntry, upperPeptideBoundEntry, allowedMissedCleavages,
                      standardProteaseCheckVars, additionalProteaseCheckVars, fastaFilePathEntry,
-                     selectedFinderLevel, degreeEntry)
+                     selectedFinderLevel, sizeEntry)
 
     Note: - This function uses the selected finder level to calculate protease combinations and displays the results
     using message boxes.
@@ -119,19 +119,19 @@ def best_combination(lower_peptide_bound_entry, upper_peptide_bound_entry, allow
     selected_additional_proteases = [proteaseList[idx] for idx, var in enumerate(additional_protease_check_vars) if
                                      var.get() == 1]
 
-    # Get the degree of protease combinations.
-    degree = int(degree_entry.get())
+    # Get the size of protease combinations.
+    combinationSize = int(size_entry.get())
 
     peptide_or_protein_lvl = peptide_or_protein_lvl_var.get()
 
-    # Call the generalized protease finder function based on the selected degree.
+    # Call the generalized protease finder function based on the selected size.
     result = best_combination_helper(lower_peptide_bound_entry,
                                      upper_peptide_bound_entry,
                                      allowed_missed_cleavages,
                                      selected_standard_proteases,
                                      selected_additional_proteases,
                                      fasta_file_path_entry,
-                                     degree,
+                                     combinationSize,
                                      peptide_or_protein_lvl)
 
     result_file = result[0]
@@ -189,7 +189,7 @@ def best_combination(lower_peptide_bound_entry, upper_peptide_bound_entry, allow
 
 def best_combination_helper(lower_peptide_bound_daltons_entry, higher_peptide_bound_daltons_entry,
                             allowed_missed_cleavages, selected_standard_proteases, selected_additional_proteases,
-                            file_path_entry, degree: int, peptide_or_protein_lvl):
+                            file_path_entry, combination_size: int, peptide_or_protein_lvl):
     """
     Finds the best protease combinations based on peptide coverage.
 
@@ -200,7 +200,7 @@ def best_combination_helper(lower_peptide_bound_daltons_entry, higher_peptide_bo
         selected_standard_proteases (list of str): List of selected standard protease names.
         selected_additional_proteases (list of str): List of selected additional protease names.
         file_path_entry (tkinter.Entry): Entry widget for the path to the file containing protein sequences.
-        degree (int): The degree of protease combinations to consider.
+        combination_size (int): The size of protease combinations to consider.
         peptide_or_protein_lvl (str): Determines whether the program calculates for peptide or protein coverage
 
     Returns:
@@ -209,8 +209,8 @@ def best_combination_helper(lower_peptide_bound_daltons_entry, higher_peptide_bo
         list[Tuple[Any, float]]: list of protease combinations and their peptide coverage. sorted, for UI
 
     Notes:
-        - The degree parameter specifies how many additional proteases to combine with the standard proteases.
-        - A lower degree is recommended due to the exponential growth of combinations as the degree increases.
+        - The size parameter specifies how many additional proteases to combine with the standard proteases.
+        - A lower size is recommended due to the exponential growth of combinations as the size increases.
     """
     # Extract input values from GUI elements
     lower_bound = float(lower_peptide_bound_daltons_entry.get())
@@ -222,12 +222,11 @@ def best_combination_helper(lower_peptide_bound_daltons_entry, higher_peptide_bo
         # Initialize coverage map with standard proteases
         standard_coverage_map = {}
         for protease in selected_standard_proteases:
-            standard_coverage_map = protease_or(
-                one_protease_digestion(protease, proteins, lower_bound, upper_bound, missed_cleavages_num),
-                standard_coverage_map)
-
-        # Generate protease combinations with the specified degree
-        protease_combinations = generate_protease_combinations_peptide(selected_additional_proteases, degree,
+            standard_coverage_map = protease_or(one_protease_digestion(protease, proteins, lower_bound,
+                                                                       upper_bound, missed_cleavages_num),
+                                                standard_coverage_map)
+        # Generate protease combinations with the specified size
+        protease_combinations = generate_protease_combinations_peptide(selected_additional_proteases, combination_size,
                                                                        proteins, lower_bound, upper_bound,
                                                                        missed_cleavages_num, standard_coverage_map)
         protease_combinations_copy = copy.deepcopy(protease_combinations)
@@ -241,7 +240,7 @@ def best_combination_helper(lower_peptide_bound_daltons_entry, higher_peptide_bo
             standard_identified_proteins = find_identified_proteins(protease, protein_list, lower_bound, upper_bound,
                                                                     missed_cleavages_num)[0]
 
-        protease_combinations = generate_protease_combinations_protein(selected_additional_proteases, degree,
+        protease_combinations = generate_protease_combinations_protein(selected_additional_proteases, combination_size,
                                                                        protein_list, lower_bound,
                                                                        upper_bound, missed_cleavages_num,
                                                                        standard_identified_proteins)
@@ -252,13 +251,13 @@ def best_combination_helper(lower_peptide_bound_daltons_entry, higher_peptide_bo
         raise ValueError(
             f"Invalid radio button value, must be 'peptide' or 'protein'.")
 
-    # Generate the CSV filename based on the degree of combinations
+    # Generate the CSV filename based on the size of combinations
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     standard_protease_names = "_".join(selected_standard_proteases)
-    output_csv_file = f'Combinations{degree}_{peptide_or_protein_lvl}_{standard_protease_names}_{timestamp}.csv'
+    output_csv_file = f'Combinations{combination_size}_{peptide_or_protein_lvl}_{standard_protease_names}_{timestamp}.csv'
 
-    # Generate headers dynamically based on the degree
-    headers = [f'Protease {i + 1}' for i in range(degree)] + ['Coverage']
+    # Generate headers dynamically based on the size
+    headers = [f'Protease {i + 1}' for i in range(combination_size)] + ['Coverage']
 
     # Write the sorted list to a CSV file
     with open(output_csv_file, mode='w', newline='') as csv_file:
@@ -269,7 +268,7 @@ def best_combination_helper(lower_peptide_bound_daltons_entry, higher_peptide_bo
     return output_csv_file, protease_combinations
 
 
-def generate_protease_combinations_peptide(selected_proteases, degree, proteins, lower_bound, upper_bound,
+def generate_protease_combinations_peptide(selected_proteases, combination_size, proteins, lower_bound, upper_bound,
                                            missed_cleavages_num,
                                            standard_coverage_map=None):
     """
@@ -277,7 +276,7 @@ def generate_protease_combinations_peptide(selected_proteases, degree, proteins,
 
     Args:
         selected_proteases (list of str): List of selected protease names.
-        degree (int): Degree of combinations (1, 2, 3, etc.).
+        combination_size (int): size of combinations (1, 2, 3, etc.).
         proteins (list of str): List of protein sequences.
         lower_bound (float): Lower bound of peptide mass in daltons.
         upper_bound (float): Upper bound of peptide mass in daltons.
@@ -293,7 +292,7 @@ def generate_protease_combinations_peptide(selected_proteases, degree, proteins,
     if standard_coverage_map is None:
         standard_coverage_map = {}
 
-    if degree == 1:
+    if combination_size == 1:
         # Special handling for single protease
         for protease in selected_proteases:
             combo = (protease,)
@@ -305,8 +304,8 @@ def generate_protease_combinations_peptide(selected_proteases, degree, proteins,
                 protease_combinations.append((*combo, peptide_coverage))
                 print(f"{(*combo, peptide_coverage)}")
     else:
-        # General case for degrees greater than 1
-        for combo in combinations(selected_proteases, degree):
+        # General case for sizes greater than 1
+        for combo in combinations(selected_proteases, combination_size):
             combo = tuple(sorted(combo))
             if combo not in processed_combinations:
                 processed_combinations.add(combo)
@@ -319,14 +318,14 @@ def generate_protease_combinations_peptide(selected_proteases, degree, proteins,
     return protease_combinations
 
 
-def generate_protease_combinations_protein(selected_proteases, degree, protein_list, lower_bound, upper_bound,
+def generate_protease_combinations_protein(selected_proteases, combination_size, protein_list, lower_bound, upper_bound,
                                            missed_cleavages_num, standard_protein_set=None):
     """
     Generate protease combinations and calculate their protein coverage.
 
     Args:
         selected_proteases (list of str): List of selected protease names.
-        degree (int): Degree of combinations (1, 2, 3, etc.).
+        combination_size (int): Size of combinations (1, 2, 3, etc.).
         protein_list (list of Tuple): List of protein sequences.
         lower_bound (float): Lower bound of peptide mass in daltons.
         upper_bound (float): Upper bound of peptide mass in daltons.
@@ -343,7 +342,7 @@ def generate_protease_combinations_protein(selected_proteases, degree, protein_l
     if standard_protein_set is None:
         standard_protein_set = set()
 
-    if degree == 1:
+    if combination_size == 1:
         for protease in selected_proteases:
             combo = (protease,)
             if combo not in processed_combinations:
@@ -355,7 +354,7 @@ def generate_protease_combinations_protein(selected_proteases, degree, protein_l
                 protease_combinations.append((*combo, protein_coverage))
                 print(f"{(*combo, protein_coverage)}")
     else:
-        for combo in combinations(selected_proteases, degree):
+        for combo in combinations(selected_proteases, combination_size):
             combo = tuple(sorted(combo))
             if combo not in processed_combinations:
                 processed_combinations.add(combo)
@@ -832,6 +831,8 @@ def one_protease_digestion(protease, protein_list, lower_bound, upper_bound, mis
 
     # Initialize a list to store coverage maps for each protein
     coverage_map = []
+    total_peptides = 0
+    filtered_peptides = 0
 
     # Loop through each protein sequence for digestion
     for protein in protein_list:
@@ -842,10 +843,12 @@ def one_protease_digestion(protease, protein_list, lower_bound, upper_bound, mis
         for start, peptide in parser.icleave(protein, custom_expasy_rules[protease], missed_cleavages_num,
                                              regex=True):
             peptide = peptide.translate(translation_table)
+            total_peptides = total_peptides + 1
             current_peptide_mass = mass.calculate_mass(sequence=peptide, aa_comp=aa_comp)
             # Check if the peptide mass is within the desired range
             if lower_bound < current_peptide_mass < upper_bound:
                 # Mark the amino acids covered by the peptide
+                filtered_peptides = filtered_peptides + 1
                 AA_coverage_map[start:start + len(peptide)] = 1
 
         # Append the coverage map of the protein to the list
@@ -1297,17 +1300,17 @@ def create_tab(tab_parent, radio_button_string_var):
     lowerBoundText = Label(tab_parent, text="Lower Bound(Da) of Mass Spectrometer:", pady=5, padx=10,
                            font=("Roboto", 10), bg="#ededed")
     lowerPeptideBoundDaltonsEntry = Entry(tab_parent, font=("Roboto", 12))
-    lowerPeptideBoundDaltonsEntry.insert(0, '400')
+    lowerPeptideBoundDaltonsEntry.insert(0, '600')
 
     higherBoundText = Label(tab_parent, text="Upper Bound(Da) of Mass Spectrometer:", pady=5, padx=10,
                             font=("Roboto", 10), bg="#ededed")
     upperPeptideBoundDaltonsEntry = Entry(tab_parent, font=("Roboto", 12))
-    upperPeptideBoundDaltonsEntry.insert(0, '6000')
+    upperPeptideBoundDaltonsEntry.insert(0, '5000')
 
     missedCleavagesText = Label(tab_parent, text="Number of Allowed Missed Cleavages:", pady=5, padx=10,
                                 font=("Roboto", 10), bg="#ededed")
     allowedMissedCleavages = Entry(tab_parent, font=("Roboto", 12))
-    allowedMissedCleavages.insert(0, '2')
+    allowedMissedCleavages.insert(0, '0')
 
     # Standard Proteases checklist
     standard_protease_label = Label(tab_parent, text="Standard Proteases:", pady=4, padx=10,
@@ -1374,16 +1377,14 @@ def create_tab(tab_parent, radio_button_string_var):
     fastaFileBrowseButton = Button(tab_parent, text="Browse", command=lambda: browse_file(fastaFilePathEntry),
                                    font=("Roboto", 10))
 
-
-
-    # Degree Entry and Label
-    degree_frame = Frame(tab_parent, bg="#ededed")
-    degree_label = Label(degree_frame, text="Degree of Combinations:", pady=10, padx=0,
-                         font=("Roboto", 10), bg="#ededed")
-    degree_entry = Entry(degree_frame, font=("Roboto", 12), width=1)
-    degree_entry.insert(0, '2')
-    degree_label.grid(row=0, column=0, padx=3, pady=0, sticky="e")
-    degree_entry.grid(row=0, column=1, padx=3, pady=0, sticky="w")
+    # Size Entry and Label
+    combination_size_frame = Frame(tab_parent, bg="#ededed")
+    size_label = Label(combination_size_frame, text="Combination Size:", pady=10, padx=0,
+                       font=("Roboto", 10), bg="#ededed")
+    size_entry = Entry(combination_size_frame, font=("Roboto", 12), width=1)
+    size_entry.insert(0, '2')
+    size_label.grid(row=0, column=0, padx=3, pady=0, sticky="e")
+    size_entry.grid(row=0, column=1, padx=3, pady=0, sticky="w")
 
     # Radio buttons for protease finder level selection
     radio_frame = Frame(tab_parent, bg="#ededed")
@@ -1419,7 +1420,7 @@ def create_tab(tab_parent, radio_button_string_var):
                                                                 standard_protease_check_vars,
                                                                 additional_protease_check_vars,
                                                                 fastaFilePathEntry,
-                                                                degree_entry,
+                                                                size_entry,
                                                                 radio_button_string_var),
                                font=("Roboto", 11), pady=3, padx=4)
     best_combo_button.grid(row=0, column=0, padx=5, pady=5)
@@ -1471,7 +1472,7 @@ def create_tab(tab_parent, radio_button_string_var):
     fastaFilePathEntry.grid(row=10, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
     fastaFileBrowseButton.grid(row=11, column=0, columnspan=2, padx=10, pady=0)
 
-    degree_frame.grid(row=12, column=0, columnspan=2, padx=10, pady=0)
+    combination_size_frame.grid(row=12, column=0, columnspan=2, padx=10, pady=0)
 
     radio_frame.grid(row=13, column=0, columnspan=2, padx=10, pady=3)
 
@@ -1482,4 +1483,6 @@ if __name__ == '__main__':
     master = Tk()
     radio_button_str = StringVar()  # Create a persistent StringVar
     create_tab(master, radio_button_str)
+    one_protease_cache_peptide = {}
+    protease_digestion_cache_protein = {}
     master.mainloop()
